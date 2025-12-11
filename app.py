@@ -196,4 +196,43 @@ def launch_level(row_index):
             game_hangman("NOEL")
             
         elif row_index == 6:
-            st.su
+            st.subheader("Niveau 7 : Boss Final")
+            game_rps()
+
+# --- INTERFACE PRINCIPALE ---
+
+st.title("🧩 Matrix Repair")
+st.write("Déverrouillez chaque ligne pour révéler la grille.")
+
+if st.session_state.active_row_index is None:
+    
+    # Vérif Victoire Totale
+    if all(st.session_state.unlocked_rows):
+        st.success("🏆 FÉLICITATIONS ! TOUT EST DÉVERROUILLÉ !")
+        st.balloons()
+        if st.button("Recommencer"):
+            st.session_state.unlocked_rows = [False] * NUM_ROWS
+            st.rerun()
+
+    # Affichage Grille Ligne par Ligne
+    for r in range(NUM_ROWS):
+        is_open = st.session_state.unlocked_rows[r]
+        val1, val2 = FIXED_MATRIX[r]
+        
+        if is_open:
+            # Ligne ouverte : on affiche les deux nombres
+            c1, c2 = st.columns(2)
+            c1.markdown(f'<div class="matrix-val">{val1}</div>', unsafe_allow_html=True)
+            c2.markdown(f'<div class="matrix-val">{val2}</div>', unsafe_allow_html=True)
+        else:
+            # Ligne fermée : un gros bouton
+            if st.button(f"🔒 DÉVERROUILLER LIGNE {r+1}", key=f"row_{r}"):
+                st.session_state.active_row_index = r
+                reset_game_state()
+                st.rerun()
+        
+        st.write("") # Espace
+
+else:
+    # Mode Jeu
+    launch_level(st.session_state.active_row_index)
