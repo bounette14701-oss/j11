@@ -3,7 +3,7 @@ import numpy as np
 import random
 
 # --- Configuration ---
-st.set_page_config(page_title="Matrix Repair - Fast Mode", page_icon="⚡", layout="centered")
+st.set_page_config(page_title="Matrix Repair - Édition Spéciale", page_icon="❤️", layout="centered")
 
 # --- CSS ---
 st.markdown("""
@@ -35,7 +35,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Données ---
+# --- Données (Votre Matrice 7x2) ---
 FIXED_MATRIX = np.array([
     [1, 6],
     [9, 14],
@@ -50,7 +50,6 @@ NUM_ROWS = len(FIXED_MATRIX)
 
 # --- Session State ---
 if 'unlocked_rows' not in st.session_state:
-    # Tableau de booléens : une valeur par LIGNE
     st.session_state.unlocked_rows = [False] * NUM_ROWS
 
 if 'active_row_index' not in st.session_state:
@@ -124,7 +123,7 @@ def game_hangman(target_word):
                 
     # Check Fin
     if set(word).issubset(guesses):
-        st.success(f"Mot : {word}")
+        st.success(f"Mot trouvé : {word}")
         win_row()
     elif st.session_state.mini_game_state['errors'] >= 6:
         st.error("Perdu ! Recommencez.")
@@ -167,14 +166,15 @@ def launch_level(row_index):
             st.rerun()
 
     with col_r:
-        # SCÉNARIO DES NIVEAUX
+        # --- SCÉNARIO DES NIVEAUX ---
+        
         if row_index == 0:
             st.subheader("Niveau 1 : Réflexes")
             game_rps()
             
         elif row_index == 1:
-            st.subheader("Niveau 2 : Décryptage")
-            # Mot spécifique demandé
+            st.subheader("Niveau 2 : Mot Caché")
+            # Mot conservé comme demandé précédemment
             game_hangman("SILENCE")
             
         elif row_index == 2:
@@ -182,57 +182,18 @@ def launch_level(row_index):
             game_math_simple()
             
         elif row_index == 3:
-            st.subheader("Niveau 4 : Code Source")
-            # Mot différent
-            game_hangman("MATRIX")
+            st.subheader("Niveau 4 : Mot de Cœur")
+            # CHANGEMENT ICI : MATRIX -> AMOUR
+            game_hangman("AMOUR")
             
         elif row_index == 4:
             st.subheader("Niveau 5 : Symboles")
             game_guess_symbol()
             
         elif row_index == 5:
-            st.subheader("Niveau 6 : Langage")
-            # Encore un mot différent
-            game_hangman("PYTHON")
+            st.subheader("Niveau 6 : Esprit de Fête")
+            # CHANGEMENT ICI : PYTHON -> NOEL
+            game_hangman("NOEL")
             
         elif row_index == 6:
-            st.subheader("Niveau 7 : Boss Final")
-            game_rps() # Ou un autre jeu
-
-# --- INTERFACE PRINCIPALE ---
-
-st.title("⚡ Matrix Repair : Fast Track")
-st.write("Déverrouillez chaque ligne complète en réussissant le défi associé.")
-
-if st.session_state.active_row_index is None:
-    
-    # Vérif Victoire Totale
-    if all(st.session_state.unlocked_rows):
-        st.success("🏆 SYSTÈME ENTIÈREMENT RESTAURÉ !")
-        st.balloons()
-        if st.button("Reset"):
-            st.session_state.unlocked_rows = [False] * NUM_ROWS
-            st.rerun()
-
-    # Affichage Grille Ligne par Ligne
-    for r in range(NUM_ROWS):
-        is_open = st.session_state.unlocked_rows[r]
-        val1, val2 = FIXED_MATRIX[r]
-        
-        if is_open:
-            # Ligne ouverte : on affiche les deux nombres
-            c1, c2 = st.columns(2)
-            c1.markdown(f'<div class="matrix-val">{val1}</div>', unsafe_allow_html=True)
-            c2.markdown(f'<div class="matrix-val">{val2}</div>', unsafe_allow_html=True)
-        else:
-            # Ligne fermée : un gros bouton
-            if st.button(f"🔒 DÉVERROUILLER LIGNE {r+1} (Défi requis)", key=f"row_{r}"):
-                st.session_state.active_row_index = r
-                reset_game_state()
-                st.rerun()
-        
-        st.write("") # Petit espace entre les lignes
-
-else:
-    # Mode Jeu
-    launch_level(st.session_state.active_row_index)
+            st.su
