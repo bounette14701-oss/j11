@@ -2,41 +2,40 @@ import streamlit as st
 import numpy as np
 import random
 
-# --- Configuration de la page ---
-st.set_page_config(page_title="Matrix Repair - Mission Silence", page_icon="🧩", layout="centered")
+# --- Configuration ---
+st.set_page_config(page_title="Matrix Repair - Fast Mode", page_icon="⚡", layout="centered")
 
-# --- Styles CSS personnalisés ---
+# --- CSS ---
 st.markdown("""
     <style>
-    .matrix-cell {
-        font-size: 24px;
+    .matrix-val {
+        font-size: 30px;
         font-weight: bold;
         text-align: center;
         padding: 15px;
-        border-radius: 8px;
-        margin: 5px;
-        color: white;
-    }
-    .locked {
-        background-color: #e74c3c;
-        border: 2px dashed #c0392b;
-        cursor: pointer;
-    }
-    .unlocked {
         background-color: #2ecc71;
         border: 2px solid #27ae60;
+        border-radius: 8px;
         color: white;
+    }
+    .locked-row-btn {
+        width: 100%;
+        background-color: #e74c3c;
+        color: white;
+        font-weight: bold;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
     }
     .stButton button {
         width: 100%;
-        height: 60px; /* Hauteur uniforme pour les boutons */
+        font-size: 18px;
+        height: 60px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- Initialisation de l'état (Session State) ---
-
-# Définition de la Matrice C basée sur votre image (7 lignes, 2 colonnes)
+# --- Données ---
 FIXED_MATRIX = np.array([
     [1, 6],
     [9, 14],
@@ -47,224 +46,193 @@ FIXED_MATRIX = np.array([
     [12, 5]
 ])
 
-ROWS, COLS = FIXED_MATRIX.shape
+NUM_ROWS = len(FIXED_MATRIX)
 
-if 'target_matrix' not in st.session_state:
-    st.session_state.target_matrix = FIXED_MATRIX
+# --- Session State ---
+if 'unlocked_rows' not in st.session_state:
+    # Tableau de booléens : une valeur par LIGNE
+    st.session_state.unlocked_rows = [False] * NUM_ROWS
 
-if 'unlocked_mask' not in st.session_state:
-    # Masque booléen : False = Verrouillé, True = Déverrouillé
-    st.session_state.unlocked_mask = np.full((ROWS, COLS), False)
-
-if 'current_active_cell' not in st.session_state:
-    st.session_state.current_active_cell = None
+if 'active_row_index' not in st.session_state:
+    st.session_state.active_row_index = None
 
 if 'mini_game_state' not in st.session_state:
     st.session_state.mini_game_state = {}
 
-# --- Fonctions Utilitaires ---
-
-def reset_mini_game():
+# --- Logique de Victoire ---
+def reset_game_state():
     st.session_state.mini_game_state = {}
 
-def win_cell():
-    r, c = st.session_state.current_active_cell
-    st.session_state.unlocked_mask[r, c] = True
-    st.session_state.current_active_cell = None
-    reset_mini_game()
+def win_row():
+    idx = st.session_state.active_row_index
+    st.session_state.unlocked_rows[idx] = True
+    st.session_state.active_row_index = None
+    reset_game_state()
     st.balloons()
     st.rerun()
 
-# --- LES MINI-JEUX ---
+# --- LES JEUX ---
 
-# 1. JEU : Pierre-Papier-Ciseaux
 def game_rps():
-    st.subheader("👊 ✋ ✌️ Duel : Pierre-Papier-Ciseaux")
-    st.info("Battez l'ordinateur pour réparer ce secteur.")
-    
-    choices = ["Pierre", "Papier", "Ciseaux"]
-    
+    st.info("Duel rapide : Battez l'ordinateur.")
     col1, col2, col3 = st.columns(3)
-    user_choice = None
     
-    if col1.button("👊 Pierre"): user_choice = "Pierre"
-    if col2.button("✋ Papier"): user_choice = "Papier"
-    if col3.button("✌️ Ciseaux"): user_choice = "Ciseaux"
-
-    if user_choice:
-        bot_choice = random.choice(choices)
-        st.write(f"Vous: **{user_choice}** | Ordi: **{bot_choice}**")
+    u = None
+    if col1.button("👊"): u = "P"
+    if col2.button("✋"): u = "F"
+    if col3.button("✌️"): u = "C"
+    
+    if u:
+        bot = random.choice(["P", "F", "C"])
+        mapping = {"P": "Pierre", "F": "Papier", "C": "Ciseaux"}
+        st.write(f"Ordi joue : {mapping[bot]}")
         
-        if user_choice == bot_choice:
-            st.warning("Égalité ! Rejouez.")
-        elif (user_choice == "Pierre" and bot_choice == "Ciseaux") or \
-             (user_choice == "Papier" and bot_choice == "Pierre") or \
-             (user_choice == "Ciseaux" and bot_choice == "Papier"):
+        # Victoire si : P>C, F>P, C>F
+        if (u == "P" and bot == "C") or (u == "F" and bot == "P") or (u == "C" and bot == "F"):
             st.success("Gagné !")
-            win_cell()
+            win_row()
+        elif u == bot:
+            st.warning("Égalité, réessayez !")
         else:
-            st.error("Perdu ! Essayez encore.")
+            st.error("Perdu !")
 
-# 2. JEU : Le Pendu (Modifié pour le mot SILENCE)
-def game_hangman():
-    st.subheader("🔤 Le Pendu du Hacker")
-    st.info("Le mot de passe est requis. Indice : Absence de bruit.")
+def game_hangman(target_word):
+    st.info(f"Devinez le mot ({len(target_word)} lettres).")
     
-    # ICI : On force le mot demandé
-    forced_word = "SILENCE"
-    
-    # Init pendu
     if 'word' not in st.session_state.mini_game_state:
-        st.session_state.mini_game_state['word'] = forced_word
+        st.session_state.mini_game_state['word'] = target_word
         st.session_state.mini_game_state['guesses'] = set()
         st.session_state.mini_game_state['errors'] = 0
-    
+        
     word = st.session_state.mini_game_state['word']
     guesses = st.session_state.mini_game_state['guesses']
     
-    # Affichage du mot masqué
-    display_word = " ".join([letter if letter in guesses else "_" for letter in word])
-    st.markdown(f"<h2 style='text-align:center; letter-spacing: 5px;'>{display_word}</h2>", unsafe_allow_html=True)
+    # Affichage
+    display = " ".join([l if l in guesses else "_" for l in word])
+    st.markdown(f"## {display}")
     
-    # Clavier virtuel
-    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    
-    # Mise en page du clavier
-    cols = st.columns(7) 
-    for i, letter in enumerate(alphabet):
-        if letter not in guesses:
-            if cols[i % 7].button(letter):
-                st.session_state.mini_game_state['guesses'].add(letter)
-                if letter not in word:
+    # Clavier
+    alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    cols = st.columns(9)
+    for i, char in enumerate(alpha):
+        if char not in guesses:
+            if cols[i%9].button(char):
+                st.session_state.mini_game_state['guesses'].add(char)
+                if char not in word:
                     st.session_state.mini_game_state['errors'] += 1
                 st.rerun()
-        else:
-            # Espace vide pour garder l'alignement
-            cols[i % 7].write("⬛")
-    
-    # Vérification victoire/défaite
+                
+    # Check Fin
     if set(word).issubset(guesses):
-        st.success(f"Mot trouvé : {word}")
-        win_cell()
+        st.success(f"Mot : {word}")
+        win_row()
     elif st.session_state.mini_game_state['errors'] >= 6:
-        st.error(f"Echec ! Le mot était {word}. Réinitialisation...")
-        reset_mini_game()
+        st.error("Perdu ! Recommencez.")
+        reset_game_state()
         st.rerun()
-    else:
-        st.write(f"Erreurs : {st.session_state.mini_game_state['errors']} / 6")
 
-# 3. JEU : Logique Émoji
-def game_visual_logic():
-    st.subheader("🍎 Logique Visuelle")
-    st.info("Déduisez la valeur du dernier symbole.")
-    
-    if 'logic_vals' not in st.session_state.mini_game_state:
-        val_a = random.randint(2, 10)
-        val_b = random.randint(1, 5)
-        st.session_state.mini_game_state['logic_vals'] = (val_a, val_b)
-    
-    val_a, val_b = st.session_state.mini_game_state['logic_vals']
-    res_1 = val_a * 2
-    res_2 = val_a + val_b
-    final_res = val_b + val_a
-    
-    st.markdown(f"""
-    1. 🍎 + 🍎 = **{res_1}**
-    2. 🍎 + 🍌 = **{res_2}**
-    3. 🍌 + 🍎 = **?**
-    """)
-    
-    ans = st.number_input("Quelle est la valeur ?", step=1)
-    
+def game_math_simple():
+    st.info("Calcul mental rapide.")
+    if 'math_q' not in st.session_state.mini_game_state:
+        a, b = random.randint(5, 15), random.randint(5, 15)
+        st.session_state.mini_game_state['math_q'] = (a, b)
+        
+    a, b = st.session_state.mini_game_state['math_q']
+    ans = st.number_input(f"{a} x {b} = ?", step=1)
     if st.button("Valider"):
-        if ans == final_res:
-            st.success("Correct !")
-            win_cell()
+        if ans == (a * b):
+            win_row()
         else:
-            st.error("Faux calcul.")
+            st.error("Faux.")
 
-# 4. JEU : Quiz Géométrique
-def game_geometry():
-    st.subheader("📐 Géométrie Matrixienne")
-    
-    questions = [
-        {"q": "Combien de côtés a un Hexagone ?", "a": 6},
-        {"q": "Combien d'angles droits a un carré ?", "a": 4},
-        {"q": "Somme des angles d'un triangle ?", "a": 180},
-        {"q": "Combien de faces a un cube ?", "a": 6}
-    ]
-    
-    if 'geo_q' not in st.session_state.mini_game_state:
-        st.session_state.mini_game_state['geo_q'] = random.choice(questions)
-    
-    q_data = st.session_state.mini_game_state['geo_q']
-    
-    st.write(f"**Question :** {q_data['q']}")
-    user_ans = st.number_input("Votre réponse :", step=1)
-    
-    if st.button("Vérifier"):
-        if user_ans == q_data['a']:
-            st.success("Géométrie validée.")
-            win_cell()
+def game_guess_symbol():
+    st.info("Logique : 🔼 = 3, ⏹️ = 4. Combien vaut 🔼 + ⏹️ x 2 ?")
+    ans = st.number_input("Réponse", step=1)
+    if st.button("Valider la logique"):
+        # 3 + (4 * 2) = 11
+        if ans == 11:
+            win_row()
         else:
-            st.error("Mauvaise réponse.")
+            st.error("Non. Priorité des opérations !")
 
-# --- Dispatcher de Jeux ---
-def play_mini_game(row, col):
-    # Formule pour varier les jeux sur une grille 7x2
-    game_index = (row * 2 + col) % 4
+# --- ROUTEUR DE JEU ---
+def launch_level(row_index):
+    st.markdown(f"### 🛡️ Sécurité Ligne {row_index + 1}")
     
-    st.markdown("---")
-    col_left, col_right = st.columns([1, 4])
-    
-    with col_left:
-        if st.button("🔙 Retour"):
-            st.session_state.current_active_cell = None
-            reset_mini_game()
+    col_l, col_r = st.columns([1, 4])
+    with col_l:
+        if st.button("🔙"):
+            st.session_state.active_row_index = None
+            reset_game_state()
             st.rerun()
-            
-    with col_right:
-        if game_index == 0:
+
+    with col_r:
+        # SCÉNARIO DES NIVEAUX
+        if row_index == 0:
+            st.subheader("Niveau 1 : Réflexes")
             game_rps()
-        elif game_index == 1:
-            game_hangman() # Ici le mot sera SILENCE
-        elif game_index == 2:
-            game_visual_logic()
-        elif game_index == 3:
-            game_geometry()
-
-# --- Interface Principale ---
-
-st.title("📟 Matrix Repair v2.0")
-st.markdown("Cliquez sur les verrous 🔒 pour révéler les valeurs de la matrice cible.")
-
-# Affichage de la grille ou du jeu
-if st.session_state.current_active_cell is None:
-    
-    # Vérification victoire
-    if np.all(st.session_state.unlocked_mask):
-        st.success("🎉 MATRICE COMPLÈTEMENT DÉVERROUILLÉE ! 🎉")
-        st.balloons()
-    
-    # Affichage de la matrice 7x2
-    # On itère sur les 7 lignes
-    for r in range(ROWS):
-        cols = st.columns(2) # 2 Colonnes comme sur l'image
-        for c in range(COLS):
-            is_unlocked = st.session_state.unlocked_mask[r, c]
-            value = st.session_state.target_matrix[r, c]
             
-            with cols[c]:
-                if is_unlocked:
-                    st.markdown(f'<div class="matrix-cell unlocked">{value}</div>', unsafe_allow_html=True)
-                else:
-                    if st.button("🔒", key=f"btn_{r}_{c}"):
-                        st.session_state.current_active_cell = (r, c)
-                        reset_mini_game()
-                        st.rerun()
+        elif row_index == 1:
+            st.subheader("Niveau 2 : Décryptage")
+            # Mot spécifique demandé
+            game_hangman("SILENCE")
+            
+        elif row_index == 2:
+            st.subheader("Niveau 3 : Arithmétique")
+            game_math_simple()
+            
+        elif row_index == 3:
+            st.subheader("Niveau 4 : Code Source")
+            # Mot différent
+            game_hangman("MATRIX")
+            
+        elif row_index == 4:
+            st.subheader("Niveau 5 : Symboles")
+            game_guess_symbol()
+            
+        elif row_index == 5:
+            st.subheader("Niveau 6 : Langage")
+            # Encore un mot différent
+            game_hangman("PYTHON")
+            
+        elif row_index == 6:
+            st.subheader("Niveau 7 : Boss Final")
+            game_rps() # Ou un autre jeu
+
+# --- INTERFACE PRINCIPALE ---
+
+st.title("⚡ Matrix Repair : Fast Track")
+st.write("Déverrouillez chaque ligne complète en réussissant le défi associé.")
+
+if st.session_state.active_row_index is None:
+    
+    # Vérif Victoire Totale
+    if all(st.session_state.unlocked_rows):
+        st.success("🏆 SYSTÈME ENTIÈREMENT RESTAURÉ !")
+        st.balloons()
+        if st.button("Reset"):
+            st.session_state.unlocked_rows = [False] * NUM_ROWS
+            st.rerun()
+
+    # Affichage Grille Ligne par Ligne
+    for r in range(NUM_ROWS):
+        is_open = st.session_state.unlocked_rows[r]
+        val1, val2 = FIXED_MATRIX[r]
+        
+        if is_open:
+            # Ligne ouverte : on affiche les deux nombres
+            c1, c2 = st.columns(2)
+            c1.markdown(f'<div class="matrix-val">{val1}</div>', unsafe_allow_html=True)
+            c2.markdown(f'<div class="matrix-val">{val2}</div>', unsafe_allow_html=True)
+        else:
+            # Ligne fermée : un gros bouton
+            if st.button(f"🔒 DÉVERROUILLER LIGNE {r+1} (Défi requis)", key=f"row_{r}"):
+                st.session_state.active_row_index = r
+                reset_game_state()
+                st.rerun()
+        
+        st.write("") # Petit espace entre les lignes
 
 else:
-    # --- VUE MINI-JEU ---
-    r, c = st.session_state.current_active_cell
-    st.markdown(f"### 🔓 Déverrouillage Case [{r+1}, {c+1}]")
-    play_mini_game(r, c)
+    # Mode Jeu
+    launch_level(st.session_state.active_row_index)
