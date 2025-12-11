@@ -233,4 +233,38 @@ def play_mini_game(row, col):
         elif game_index == 3:
             game_geometry()
 
-# ---
+# --- Interface Principale ---
+
+st.title("📟 Matrix Repair v2.0")
+st.markdown("Cliquez sur les verrous 🔒 pour révéler les valeurs de la matrice cible.")
+
+# Affichage de la grille ou du jeu
+if st.session_state.current_active_cell is None:
+    
+    # Vérification victoire
+    if np.all(st.session_state.unlocked_mask):
+        st.success("🎉 MATRICE COMPLÈTEMENT DÉVERROUILLÉE ! 🎉")
+        st.balloons()
+    
+    # Affichage de la matrice 7x2
+    # On itère sur les 7 lignes
+    for r in range(ROWS):
+        cols = st.columns(2) # 2 Colonnes comme sur l'image
+        for c in range(COLS):
+            is_unlocked = st.session_state.unlocked_mask[r, c]
+            value = st.session_state.target_matrix[r, c]
+            
+            with cols[c]:
+                if is_unlocked:
+                    st.markdown(f'<div class="matrix-cell unlocked">{value}</div>', unsafe_allow_html=True)
+                else:
+                    if st.button("🔒", key=f"btn_{r}_{c}"):
+                        st.session_state.current_active_cell = (r, c)
+                        reset_mini_game()
+                        st.rerun()
+
+else:
+    # --- VUE MINI-JEU ---
+    r, c = st.session_state.current_active_cell
+    st.markdown(f"### 🔓 Déverrouillage Case [{r+1}, {c+1}]")
+    play_mini_game(r, c)
